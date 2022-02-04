@@ -4,8 +4,11 @@ import (
 	"context"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
+	"time"
 
 	"github.com/noxworld-dev/xwis"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
 	"github.com/noxworld-dev/lobby"
@@ -17,6 +20,8 @@ func init() {
 		Short: "run the lobby web server",
 	}
 	fHost := cmd.Flags().String("host", ":8080", "host the server will listen on")
+	fMonitor := cmd.Flags().String("monitor", "127.0.0.1:6060", "host the monitoring api will listen on")
+	fGlobal := cmd.Flags().Bool("global", false, "run the server in a global mode (monitor other servers)")
 	fXWIS := cmd.Flags().Bool("xwis", true, "list games from XWIS as well")
 	fXLogin := cmd.Flags().String("xlogin", "", "XWIS login to use")
 	fXPass := cmd.Flags().String("xpass", "", "XWIS password to use")
@@ -45,8 +50,28 @@ func init() {
 				lsrv.ServeHTTP(w, r)
 			}),
 		}
-		log.Println("serving on", srv.Addr)
-		// TODO: serve metrics + pprof as well
+		log.Println("serving lobby on", srv.Addr)
+		if *fMonitor != "" {
+			http.Handle("/metrics", promhttp.Handler())
+			log.Println("serving monitoring on", *fMonitor)
+			go func() {
+				if err := http.ListenAndServe(*fMonitor, nil); err != nil {
+					log.Println(err)
+				}
+			}()
+			if *fGlobal {
+				// For the global server, we want to monitor the list of all games.
+				// Since XWIS list will only be retrieved when request comes in, we must periodically do list requests here.
+				go func() {
+					ctx := context.Background()
+					ticker := time.NewTicker(lobby.DefaultTimeout / 2)
+					defer ticker.Stop()
+					for range ticker.C {
+						_, _ = lb.ListGames(ctx)
+					}
+				}()
+			}
+		}
 		return srv.ListenAndServe()
 	}
 	Root.AddCommand(cmd)

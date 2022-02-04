@@ -35,12 +35,12 @@ func xwisGameMode(v xwis.MapType) GameMode {
 	return ModeCustom
 }
 
-func gameFromXWIS(g *xwis.GameInfo) Game {
+func gameFromXWIS(g *xwis.GameInfo) *Game {
 	var q *QuestInfo
 	if g.MapType == xwis.MapTypeQuest {
 		q = &QuestInfo{Stage: g.FragLimit}
 	}
-	return Game{
+	return &Game{
 		Name:    g.Name,
 		Address: g.Addr,
 		Port:    DefaultGamePort, // TODO
@@ -70,10 +70,12 @@ func (l *xwisLister) ListGames(ctx context.Context) ([]GameInfo, error) {
 		if g == nil {
 			continue
 		}
-		out = append(out, GameInfo{
-			Game: gameFromXWIS(g), SeenAt: now,
-		})
+		v := gameFromXWIS(g)
+		cntGameSeen.WithLabelValues(serverLabels(sourceXWIS, v)...).Inc()
+		out = append(out, GameInfo{Game: *v, SeenAt: now})
 	}
+	cntXWISRooms.Set(float64(len(list)))
+	cntXWISGames.Set(float64(len(out)))
 	log.Printf("xwis: %d rooms, %d games", len(list), len(out))
 	return out, nil
 }

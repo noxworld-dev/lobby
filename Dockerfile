@@ -14,5 +14,6 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/nox-lobby /usr/bin/nox-lobby
 
 EXPOSE 80
+EXPOSE 6060
 
-ENTRYPOINT ["nox-lobby", "serve", "--host=:80"]
+ENTRYPOINT ["nox-lobby", "serve", "--host=:80", "--monitor=:6060"]
