@@ -22,6 +22,10 @@ var (
 		Name: "nox_game_expired",
 		Help: "Number of times the game registration expired",
 	}, serverLabelNames)
+	cntGamePlayers = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "nox_game_players",
+		Help: "Number of players in the game",
+	}, serverLabelNames)
 	cntXWISRooms = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "nox_xwis_rooms",
 		Help: "Number of XWIS rooms",

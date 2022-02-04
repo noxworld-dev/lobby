@@ -152,7 +152,9 @@ func (l *Service) RegisterGame(ctx context.Context, s *Game) error {
 	if s.Port <= 0 {
 		s.Port = DefaultGamePort
 	}
-	cntGameSeen.WithLabelValues(serverLabels(sourceOpenNox, s)...).Inc()
+	labels := serverLabels(sourceOpenNox, s)
+	cntGameSeen.WithLabelValues(labels...).Inc()
+	cntGamePlayers.WithLabelValues(labels...).Set(float64(s.Players.Cur))
 	now := time.Now().UTC()
 	info := &GameInfo{Game: *s, SeenAt: now}
 	key := s.gameKey()
@@ -170,7 +172,9 @@ func (l *Service) maybeGC(now time.Time) {
 	for k, v := range l.byAddr {
 		if !l.isValid(v, now) {
 			delete(l.byAddr, k)
-			cntGameExpired.WithLabelValues(serverLabels(sourceOpenNox, &v.Game)...).Inc()
+			labels := serverLabels(sourceOpenNox, &v.Game)
+			cntGameExpired.WithLabelValues(labels...).Inc()
+			cntGamePlayers.WithLabelValues(labels...).Set(0)
 		}
 	}
 }

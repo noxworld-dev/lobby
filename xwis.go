@@ -71,7 +71,9 @@ func (l *xwisLister) ListGames(ctx context.Context) ([]GameInfo, error) {
 			continue
 		}
 		v := gameFromXWIS(g)
-		cntGameSeen.WithLabelValues(serverLabels(sourceXWIS, v)...).Inc()
+		labels := serverLabels(sourceXWIS, v)
+		cntGameSeen.WithLabelValues(labels...).Inc()
+		cntGamePlayers.WithLabelValues(labels...).Set(float64(v.Players.Cur))
 		out = append(out, GameInfo{Game: *v, SeenAt: now})
 	}
 	cntXWISRooms.Set(float64(len(list)))
