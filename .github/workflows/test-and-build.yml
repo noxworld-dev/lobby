@@ -1,0 +1,58 @@
+name: Test and build
+on:
+  push:
+    branches:
+      - main
+      - ci_tests
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - main
+
+env:
+  DOCKER_IMAGE_NAME: ghcr.io/noxworld-dev/lobby
+
+jobs:
+  test-and-build:
+    name: Test and build
+    runs-on: 'ubuntu-20.04'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.x'
+
+      - name: Check Go version
+        run: go version
+
+      - name: Install Go dependencies
+        run: go mod download
+
+      - name: Go test
+        run: go test -race ./...
+
+      - name: Docker build
+        run: |
+          docker build -t $DOCKER_IMAGE_NAME:tmp .
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main') || (github.ref == 'refs/heads/ci_tests')
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push latest
+        if: (github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/')
+        run: |
+          docker tag $DOCKER_IMAGE_NAME:tmp $DOCKER_IMAGE_NAME:latest
+          docker push $DOCKER_IMAGE_NAME:latest
+
+      - name: Push tagged
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          export VERSION=$(git name-rev --tags --name-only $(git rev-parse HEAD))
+          docker tag $DOCKER_IMAGE_NAME:tmp $DOCKER_IMAGE_NAME:$VERSION
+          docker push $DOCKER_IMAGE_NAME:$VERSION

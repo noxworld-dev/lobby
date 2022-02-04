@@ -1,0 +1,8 @@
+.idea
+bin/*
+.env.docker
+.vscode/
+
+cmd/nox-lobby/main
+Makefile
+scripts/
