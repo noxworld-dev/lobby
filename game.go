@@ -22,6 +22,31 @@ const (
 	ModeCustom      = GameMode("custom")
 )
 
+// GameAccess specifies access for the game (open, password-protected, etc).
+type GameAccess string
+
+const (
+	AccessOpen     = GameAccess("open")
+	AccessPassword = GameAccess("pass")
+	AccessClosed   = GameAccess("closed")
+)
+
+// Resolution is a max resolution used for the game.
+// Historically Nox used a limited resolution. For HD-aware servers, HighRes should be set.
+type Resolution struct {
+	HighRes bool `json:"high_res,omitempty"`
+	Width   int  `json:"width,omitempty"`
+	Height  int  `json:"height,omitempty"`
+}
+
+func (v *Resolution) Clone() *Resolution {
+	if v == nil {
+		return nil
+	}
+	v2 := *v
+	return &v2
+}
+
 // GameHost is an interface for the game server.
 type GameHost interface {
 	// GameInfo returns current information about the active game.
@@ -36,7 +61,9 @@ type Game struct {
 	Port    int         `json:"port,omitempty"`
 	Map     string      `json:"map"`
 	Mode    GameMode    `json:"mode"`
+	Access  GameAccess  `json:"access,omitempty"`
 	Vers    string      `json:"vers,omitempty"`
+	Res     Resolution  `json:"res,omitempty"`
 	Players PlayersInfo `json:"players"`
 	Quest   *QuestInfo  `json:"quest,omitempty"`
 }
@@ -47,6 +74,7 @@ func (g *Game) Clone() *Game {
 	}
 	g2 := *g
 	g2.Players = *g.Players.Clone()
+	g2.Res = *g.Res.Clone()
 	g2.Quest = g.Quest.Clone()
 	return &g2
 }

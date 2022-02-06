@@ -36,10 +36,31 @@ func xwisGameMode(v xwis.MapType) GameMode {
 	return ModeCustom
 }
 
+func xwisAccess(v xwis.Access) GameAccess {
+	switch v {
+	case xwis.AccessOpen:
+		return AccessOpen
+	case xwis.AccessClosed:
+		return AccessClosed
+	case xwis.AccessPrivate:
+		return AccessPassword
+	}
+	return ""
+}
+
 func gameFromXWIS(g *xwis.GameInfo) *Game {
 	var q *QuestInfo
 	if g.MapType == xwis.MapTypeQuest {
 		q = &QuestInfo{Stage: g.FragLimit}
+	}
+	res := Resolution{HighRes: false}
+	switch g.Resolution {
+	case xwis.Res640x480:
+		res.Width, res.Height = 640, 480
+	case xwis.Res800x600:
+		res.Width, res.Height = 800, 600
+	case xwis.Res1024x768:
+		res.Width, res.Height = 1024, 768
 	}
 	return &Game{
 		Name:    g.Name,
@@ -47,10 +68,12 @@ func gameFromXWIS(g *xwis.GameInfo) *Game {
 		Port:    DefaultGamePort, // TODO
 		Map:     g.Map,
 		Mode:    xwisGameMode(g.MapType),
+		Access:  xwisAccess(g.Access),
 		Players: PlayersInfo{
 			Cur: g.Players,
 			Max: g.MaxPlayers,
 		},
+		Res:   res,
 		Quest: q,
 	}
 }
