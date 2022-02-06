@@ -3,6 +3,7 @@ package lobby
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/noxworld-dev/xwis"
@@ -55,14 +56,36 @@ func gameFromXWIS(g *xwis.GameInfo) *Game {
 }
 
 type xwisLister struct {
-	c *xwis.Client
+	mu   sync.Mutex
+	c    *xwis.Client
+	prev map[gameKey][]string
+}
+
+func (l *xwisLister) metricsForRooms(list []GameInfo) {
+	cntXWISGames.Set(float64(len(list)))
+	seen := make(map[gameKey][]string, len(list))
+	for _, v := range list {
+		labels := serverLabels(sourceXWIS, &v.Game)
+		seen[v.gameKey()] = labels
+		cntGameSeen.WithLabelValues(labels...).Inc()
+		cntGamePlayers.WithLabelValues(labels...).Set(float64(v.Players.Cur))
+	}
+	for k, v := range l.prev {
+		if _, ok := seen[k]; !ok {
+			cntGamePlayers.WithLabelValues(v...).Set(0)
+		}
+	}
+	l.prev = seen
 }
 
 func (l *xwisLister) ListGames(ctx context.Context) ([]GameInfo, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	list, err := l.c.ListRooms(ctx)
 	if err != nil {
 		return nil, err
 	}
+	cntXWISRooms.Set(float64(len(list)))
 	now := time.Now().UTC()
 	var out []GameInfo
 	for _, r := range list {
@@ -71,13 +94,9 @@ func (l *xwisLister) ListGames(ctx context.Context) ([]GameInfo, error) {
 			continue
 		}
 		v := gameFromXWIS(g)
-		labels := serverLabels(sourceXWIS, v)
-		cntGameSeen.WithLabelValues(labels...).Inc()
-		cntGamePlayers.WithLabelValues(labels...).Set(float64(v.Players.Cur))
 		out = append(out, GameInfo{Game: *v, SeenAt: now})
 	}
-	cntXWISRooms.Set(float64(len(list)))
-	cntXWISGames.Set(float64(len(out)))
+	l.metricsForRooms(out)
 	log.Printf("xwis: %d rooms, %d games", len(list), len(out))
 	return out, nil
 }
