@@ -48,7 +48,8 @@ func xwisAccess(v xwis.Access) GameAccess {
 	return ""
 }
 
-func gameFromXWIS(g *xwis.GameInfo) *Game {
+// GameFromXWIS convert xwis.GameInfo to Game type defined by lobby.
+func GameFromXWIS(g *xwis.GameInfo) *Game {
 	var q *QuestInfo
 	if g.MapType == xwis.MapTypeQuest {
 		q = &QuestInfo{Stage: g.FragLimit}
@@ -116,7 +117,7 @@ func (l *xwisLister) ListGames(ctx context.Context) ([]GameInfo, error) {
 		if g == nil {
 			continue
 		}
-		v := gameFromXWIS(g)
+		v := GameFromXWIS(g)
 		out = append(out, GameInfo{Game: *v, SeenAt: now})
 	}
 	l.metricsForRooms(out)
