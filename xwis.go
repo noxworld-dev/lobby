@@ -3,6 +3,7 @@ package lobby
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func GameFromXWIS(g *xwis.GameInfo) *Game {
 		Name:    g.Name,
 		Address: g.Addr,
 		Port:    DefaultGamePort, // TODO
-		Map:     g.Map,
+		Map:     strings.ToLower(g.Map),
 		Mode:    xwisGameMode(g.MapType),
 		Access:  xwisAccess(g.Access),
 		Players: PlayersInfo{

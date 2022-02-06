@@ -152,6 +152,7 @@ func (l *Service) RegisterGame(ctx context.Context, s *Game) error {
 	if s.Port <= 0 {
 		s.Port = DefaultGamePort
 	}
+	s.Map = strings.ToLower(s.Map)
 	labels := serverLabels(sourceOpenNox, s)
 	cntGameSeen.WithLabelValues(labels...).Inc()
 	cntGamePlayers.WithLabelValues(labels...).Set(float64(s.Players.Cur))

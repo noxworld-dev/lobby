@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 )
 
 var _ http.Handler = (*Server)(nil)
@@ -115,6 +116,7 @@ func (api *Server) RegisterServer(w http.ResponseWriter, r *http.Request) {
 			}
 			req.Address = addr
 		}
+		req.Map = strings.ToLower(req.Map)
 		err := api.l.RegisterGame(r.Context(), &req)
 		if err != nil {
 			api.jsonError(w, http.StatusBadRequest, err)
