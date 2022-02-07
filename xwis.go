@@ -83,15 +83,15 @@ func GameFromXWIS(g *xwis.GameInfo) *Game {
 type xwisLister struct {
 	mu   sync.Mutex
 	c    *xwis.Client
-	prev map[gameKey][]string
+	prev map[string][]string
 }
 
 func (l *xwisLister) metricsForRooms(list []GameInfo) {
 	cntXWISGames.Set(float64(len(list)))
-	seen := make(map[gameKey][]string, len(list))
+	seen := make(map[string][]string, len(list))
 	for _, v := range list {
 		labels := serverLabels(sourceXWIS, &v.Game)
-		seen[v.gameKey()] = labels
+		seen[strings.Join(labels, ",")] = labels
 		cntGameSeen.WithLabelValues(labels...).Inc()
 		cntGamePlayers.WithLabelValues(labels...).Set(float64(v.Players.Cur))
 	}
