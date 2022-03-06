@@ -79,10 +79,17 @@ func (g *Game) Clone() *Game {
 	return &g2
 }
 
+// PlayerInfo is an information about a specific player.
+type PlayerInfo struct {
+	Name  string `json:"name"`
+	Class string `json:"class,omitempty"`
+}
+
 // PlayersInfo is an information about players in a specific game.
 type PlayersInfo struct {
-	Cur int `json:"cur"`
-	Max int `json:"max"`
+	Cur  int          `json:"cur"`
+	Max  int          `json:"max"`
+	List []PlayerInfo `json:"list,omitempty"`
 }
 
 func (v *PlayersInfo) Clone() *PlayersInfo {
@@ -90,6 +97,10 @@ func (v *PlayersInfo) Clone() *PlayersInfo {
 		return nil
 	}
 	v2 := *v
+	if len(v.List) != 0 {
+		v2.List = make([]PlayerInfo, len(v.List))
+		copy(v2.List, v.List)
+	}
 	return &v2
 }
 
