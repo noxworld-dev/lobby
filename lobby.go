@@ -117,6 +117,7 @@ type Service struct {
 	mu      sync.RWMutex
 	byAddr  map[gameKey]*GameInfo
 	timeout time.Duration
+	lastGC  time.Time
 }
 
 // SetTimeout sets an expiration time for game registrations.
@@ -156,20 +157,27 @@ func (l *Service) RegisterGame(ctx context.Context, s *Game) error {
 	labels := serverLabels(sourceOpenNox, s)
 	cntGameSeen.WithLabelValues(labels...).Inc()
 	cntGamePlayers.WithLabelValues(labels...).Set(float64(s.Players.Cur))
-	now := time.Now().UTC()
-	info := &GameInfo{Game: *s, SeenAt: now}
+	info := &GameInfo{Game: *s}
 	key := s.gameKey()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	info.SeenAt = time.Now().UTC()
 	l.byAddr[key] = info
-	l.maybeGC(now)
+	l.maybeGC(info.SeenAt)
 	return nil
 }
 
+func (l *Service) doGC() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.maybeGC(time.Now())
+}
+
 func (l *Service) maybeGC(now time.Time) {
-	if !atomic.CompareAndSwapInt32(&l.gc, 1, 0) {
+	if !atomic.CompareAndSwapInt32(&l.gc, 1, 0) && l.lastGC.Add(l.timeout).After(now) {
 		return
 	}
+	l.lastGC = now
 	for k, v := range l.byAddr {
 		if !l.isValid(v, now) {
 			delete(l.byAddr, k)
@@ -180,32 +188,32 @@ func (l *Service) maybeGC(now time.Time) {
 	}
 }
 
-func (l *Service) triggerGC() {
-	atomic.StoreInt32(&l.gc, 1)
-}
-
 func (l *Service) isValid(v *GameInfo, now time.Time) bool {
 	return v.SeenAt.Add(l.timeout).After(now)
 }
 
-func (l *Service) listGames() []GameInfo {
+func (l *Service) listGames() ([]GameInfo, bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	now := time.Now()
 	out := make([]GameInfo, 0, len(l.byAddr))
+	gc := false
 	for _, v := range l.byAddr {
 		if l.isValid(v, now) {
 			out = append(out, *v.Clone())
-		} else {
-			l.triggerGC()
+		} else if !gc {
+			gc = atomic.CompareAndSwapInt32(&l.gc, 0, 1)
 		}
 	}
-	return out
+	return out, gc
 }
 
 // ListGames implements Lobby.
 func (l *Service) ListGames(ctx context.Context) ([]GameInfo, error) {
-	list := l.listGames()
+	list, gc := l.listGames()
+	if gc {
+		l.doGC()
+	}
 	sortGameInfos(list)
 	return list, nil
 }

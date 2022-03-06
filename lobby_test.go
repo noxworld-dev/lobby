@@ -16,14 +16,14 @@ const (
 )
 
 var (
-	server1     = Game{Name: "test1", Address: "1.2.1.1"}
+	server1     = Game{Name: "test1", Address: "1.1.1.1"}
 	initServers = []Game{
 		server1,
-		{Name: "test2", Address: "1.2.2.2"},
-		{Name: "test3", Address: "1.2.3.3"},
-		{Name: "test4", Address: "1.2.4.4"},
-		{Name: "test5", Address: "1.2.5.5"},
-		{Name: "test6", Address: "1.2.6.6"},
+		{Name: "test2", Address: "2.2.2.2"},
+		{Name: "test3", Address: "3.3.3.3"},
+		{Name: "test4", Address: "4.4.4.4"},
+		{Name: "test5", Address: "5.5.5.5"},
+		{Name: "test6", Address: "6.6.6.6"},
 	}
 )
 
@@ -237,15 +237,17 @@ func expectServers(t testing.TB, l Lobby, exp []Game) {
 }
 
 func testLobbyRegisterConcurrent(t testing.TB, testLobby Lobby) {
+	ready := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			time.Sleep(time.Millisecond)
+			<-ready
 			registerServer(t, testLobby, server1)
 		}()
 	}
+	close(ready)
 	wg.Wait()
 }
 
@@ -254,30 +256,35 @@ func testLobbyListConcurrent(t testing.TB, testLobby Lobby) {
 		if i == 2 {
 			// expire first two records
 			time.Sleep(2 * testTimeout)
+			expectServers(t, testLobby, nil)
 		}
 		registerServer(t, testLobby, s)
 	}
+	expectServers(t, testLobby, initServers[2:])
+	ready := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			time.Sleep(testTimeout / 2)
+			<-ready
 			expectServers(t, testLobby, initServers[2:])
 		}()
 	}
+	close(ready)
 	wg.Wait()
 }
 
 func testLobbyMixConcurrent(t testing.TB, testLobby Lobby) {
 	ctx := context.Background()
+	ready := make(chan struct{})
 	var wg sync.WaitGroup
 	// Run 10 routines calling ListGames, each should call it 3 times in a loop.
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			time.Sleep(testTimeout / 2)
+			<-ready
 			for j := 0; j < 3; j++ {
 				_, err := testLobby.ListGames(ctx)
 				require.NoError(t, err)
@@ -289,9 +296,10 @@ func testLobbyMixConcurrent(t testing.TB, testLobby Lobby) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			time.Sleep(testTimeout / 2)
+			<-ready
 			registerServer(t, testLobby, server1)
 		}()
 	}
+	close(ready)
 	wg.Wait()
 }
